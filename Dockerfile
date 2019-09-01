@@ -6,7 +6,7 @@ WORKDIR /app
 
 RUN npm install -g cnpm --registry=https://registry.npm.taobao.org; cnpm install; npm run build
 
-FROM opencodo/nginx
+FROM nginx
 
 ENV TZ=Asia/Shanghai
 

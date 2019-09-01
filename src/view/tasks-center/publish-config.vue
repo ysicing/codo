@@ -1,5 +1,5 @@
 <template>
-  <Card>
+  <Card style="height:100%">
     <div class="search-con search-con-top">
       <Select v-model="searchKey" class="search-col">
         <Option
@@ -8,43 +8,23 @@
           :value="item.key"
         >{{ item.title }}</Option>
       </Select>
-      <Input
-        @on-change="handleClear"
-        clearable
-        placeholder="输入关键字搜索"
-        class="search-input"
-        v-model="searchValue"
-      />
-      <Button
-        @click="handleSearch"
-        class="search-btn"
-        type="primary"
-      >搜索</Button>
-      <slot name="new_btn"><Button
-          type="primary"
-          @click="editModal('', 'post', '新建发布')"
-          class="search-btn"
-        >新建应用</Button></slot>
+      <Input class="search-input" v-model="searchValue" @on-change="handleClear" clearable placeholder="输入关键字搜索"/>
+      <Button class="search-btn" type="primary" @click="handleSearch">搜索</Button>
+      <slot name="new_btn"><Button type="primary" @click="editModal('', 'post', '新建发布')" class="search-btn">新建应用</Button></slot>
     </div>
-    <Table
-      size="small"
-      height="718"
-      ref="selection"
-      border
-      :columns="columns"
-      :data="tableData"
-    ></Table>
-    <Modal  v-model="modalMap.modalVisible" :title="modalMap.modalTitle" :loading=true :footer-hide=true >
+    <Table size="small" height="718" ref="selection" border :columns="columns" :data="tableData"/>
+    <Modal v-model="modalMap.modalVisible" :title="modalMap.modalTitle" :loading=true :footer-hide=true :mask-closable=false width="850">
       <Alert show-icon>
         <p>1. 任务在构建主机执行，确保构建主机可从仓库拉取代码和访问目标主机。</p>
         <p>2. 考虑到安全性，任务会屏蔽 Secret secret 开头的参数，请通过API获取。</p>
       </Alert>
-      <Form
-        ref="formValidate"
-        :model="formValidate"
-        :rules="ruleValidate"
-        :label-width="85"
-      >
+
+      <Form ref="formValidate" :model="formValidate" :rules="ruleValidate" :label-width="85">
+        <!-- <FormItem label="代码仓库">
+          <div>
+            <treeselect v-model="selectRepo" :disable-branch-nodes="true" search-nested :options="repoTreeData"  placeholder="选择代码仓库"/>
+          </div>
+        </FormItem> -->
         <div v-if="editModalData && editModalData == 'put'">
           <FormItem
             label="发布应用"
@@ -97,10 +77,7 @@
           label="代码仓库"
           prop="repository"
         >
-          <Select
-            v-model="formValidate.repository"
-            placeholder="参数名：REPOSITORY 选择代码仓库"
-          >
+          <Select v-model="formValidate.repository" clearable filterable placeholder="参数名：REPOSITORY 选择代码仓库">
             <Option
               v-for="(repository, index) in repositoryList"
               :value="repository"
@@ -108,14 +85,8 @@
             >{{repository}}</Option>
           </Select>
         </FormItem>
-        <FormItem
-          label="关联模板"
-          prop="temp_name"
-        >
-          <Select
-            v-model="formValidate.temp_name"
-            placeholder="关联一个模板，用来执行发布任务"
-          >
+        <FormItem label="关联模板" prop="temp_name">
+          <Select v-model="formValidate.temp_name"  clearable filterable placeholder="关联一个模板，用来执行发布任务">
             <Option
               v-for="temp in templateList"
               :value="temp"
@@ -324,7 +295,7 @@
             v-model="formValidate.config_file"
             type="textarea"
             :maxlength=500
-            :autosize="{minRows: 5,maxRows: 10}"
+            :autosize="{minRows: 3,maxRows: 10}"
             placeholder="参数名：CONFIG_FILE。格式： key,,path,,abs|rel(绝对路径|相对路径) /conf/shenshuo/dev/nginx/demo.conf,,/etc/nginx/conf.d,,abs /conf/shenshuo/dev/app/settings.py,,settings.py,,rel     这只是一种使用方法，如果不理解，请自行查看配置中心的文档，来实现"
           ></Input>
         </FormItem>
@@ -344,12 +315,18 @@
 </template>
 
 <script>
+import Treeselect from '@riophae/vue-treeselect'
+import '@riophae/vue-treeselect/dist/vue-treeselect.css'
 import { getTemplist } from "@/api/task";
-import { getPublishlist, getCoderepository, operationPublishlist, getTaglist,  getDockerrepository } from '@/api/task-other'
+import { getGittree2, getGitrepo } from '@/api/git-repo'
+import { getPublishlist, operationPublishlist, getTaglist,  getDockerrepository } from '@/api/task-other'
 export default {
+  components: { Treeselect },
   data() {
     return {
       repositoryList: [],
+      selectRepo: null,
+      repoTreeData:[],
       dockerRepositoryList: [],
       templateList: [],
       allTagList:[],
@@ -381,7 +358,7 @@ export default {
         publish_name: [
           {
             required: true,
-            message: "The name cannot be empty",
+            message: "The app name cannot be empty",
             trigger: "blur"
           }
         ],
@@ -549,11 +526,21 @@ export default {
     },
     // 获取仓库地址
     getCodeRepository() {
-      getCoderepository().then(res => {
+      getGitrepo().then(res => {
         if (res.data.code === 0) {
-          res.data.data.forEach(element => {
-            this.repositoryList.push(element.repository);
+            res.data.data.forEach(element => {
+            this.repositoryList.push(element.ssh_url_to_repo);
           });
+        } else {
+          this.$Message.error(`${res.data.msg}`);
+        }
+      });
+    },
+    //
+    getCodeRepoTree() {
+      getGittree2().then(res => {
+        if (res.data.code === 0) {
+          this.repoTreeData =res.data.data
         } else {
           this.$Message.error(`${res.data.msg}`);
         }
@@ -689,14 +676,18 @@ export default {
   watch: {
     searchValue(val) {
       this.getPublishList(this.searchKey, val);
+    },
+    selectRepo(val) {
+      console.log(val)
     }
   },
   mounted() {
-    this.getPublishList();
-    this.setDefaultSearchKey();
-    this.getCodeRepository();
-    this.getTempList();
-    this.getDockerRepository();
+    this.getPublishList()
+    this.setDefaultSearchKey()
+    // this.getCodeRepoTree()
+    this.getCodeRepository()
+    this.getTempList()
+    this.getDockerRepository()
     this.getAllTagList()
   }
 };
@@ -714,6 +705,15 @@ export default {
       display: inline-block;
       width: 200px;
       margin-left: 2px;
+    }
+    &-select-col {
+      display: inline-block;
+      width: 70px;
+      
+    }
+    &-select {
+      display: inline-block;
+      margin-left:85px;
     }
     &-btn {
       margin-left: 2px;

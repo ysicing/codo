@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div style="height:100%">
     <Card>
       <tables ref="tables" editable searchable search-place="top" v-model="tableData" :columns="columns"
        @on-delete="handleDelete" @on-save-edit="handleInput"
@@ -130,7 +130,7 @@ export default {
         { title: '昵称', key: 'nickname', sortable: true },
         { title: '部门', key: 'department', editable: true },
         { title: '手机', key: 'tel', editable: true },
-        { title: '邮箱', key: 'email' },
+        { title: '邮箱', key: 'email', editable: true },
         { title: '登录IP', key: 'last_ip' },
         {
           title: '最后登录',
